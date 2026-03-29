@@ -1,5 +1,6 @@
 /target
 /docs
 /opencli
+/ai-docs
 test-results*.md
 twitter-downloads/

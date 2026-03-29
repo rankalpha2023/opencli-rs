@@ -1,0 +1,64 @@
+site: zhihu
+name: follow
+description: 我的关注动态
+domain: www.zhihu.com
+strategy: cookie
+browser: true
+
+args:
+  limit:
+    type: int
+    default: 20
+    description: 返回数量
+  offset:
+    type: int
+    default: 0
+    description: 偏移量
+
+pipeline:
+  - navigate: https://www.zhihu.com
+
+  - evaluate: |
+      (async () => {
+        const limit = ${{ args.limit }};
+        const offset = ${{ args.offset }};
+        const res = await fetch('/api/v3/moments?limit=' + limit + '&desktop=true', {
+          credentials: 'include'
+        });
+        const data = await res.json();
+        return (data.data || []).map(item => {
+          const actor = item.actors?.[0] || {};
+          const target = item.target || {};
+          const tid = target.id || '';
+          const qid = target.question?.id || '';
+          let url = '';
+          if (tid !== '' && qid !== '') {
+            url = `https://www.zhihu.com/question/${qid}/answer/${tid}`
+          } else {
+            url = '';
+          }
+          return {
+            user: actor.name || '',
+            user_url: actor.url || '',
+            title: target.question?.title || target.title || '',
+            url: url,
+            excerpt: target.excerpt || '',
+            voteup: target.voteup_count || 0,
+            comment: target.comment_count || 0
+          };
+        });
+      })()
+
+  - map:
+      user: ${{ item.user }}
+      title: ${{ item.title }}
+      url: ${{ item.url }}
+      excerpt: ${{ item.excerpt }}
+      voteup: ${{ item.voteup }}
+      comment: ${{ item.comment }}
+
+  - filter: "${{ item.title }}"
+
+  - limit: ${{ args.limit }}
+
+columns: [action, user, title, url, excerpt, voteup, comment]
