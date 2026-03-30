@@ -1,0 +1,64 @@
+site: xueqiu
+name: column
+description: 获取指定用户的专栏文章列表
+domain: xueqiu.com
+browser: true
+
+args:
+  user_id:
+    type: string
+    required: true
+    description: 用户ID
+  page:
+    type: int
+    default: 1
+    description: 页码，默认 1
+  limit:
+    type: int
+    default: 20
+    description: 每页数量，默认 20
+
+pipeline:
+  - navigate: https://xueqiu.com
+  - evaluate: |
+      (async () => {
+        const userId = ${{ args.user_id }};
+        const page = ${{ args.page }};
+        
+        // 使用正确的API端点获取用户原创内容（专栏文章通常在这里）
+        const resp = await fetch(`https://xueqiu.com/statuses/original/timeline.json?user_id=${userId}&page=${page}`, {credentials: 'include'});
+        if (!resp.ok) throw new Error('HTTP ' + resp.status + ' Hint: Not logged in?');
+        const d = await resp.json();
+
+        const strip = (html) => (html || '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+        const list = d.statuses || d.list || [];
+        
+        return list.map(item => {
+          const user = item.user || {};
+          // 格式化日期为年月日格式
+          const formatDate = (dateStr) => {
+            if (!dateStr) return null;
+            const date = new Date(dateStr);
+            return `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+          };
+          
+          return {
+            id: item.id,
+            title: strip(item.title || item.description || '').substring(0, 100),
+            description: strip(item.text || item.description || '').substring(0, 300),
+            created_at: formatDate(item.created_at),
+            url: `https://xueqiu.com/${userId}/${item.id}`
+          };
+        });
+      })()
+
+  - map:
+      id: ${{ item.id }}
+      title: ${{ item.title }}
+      description: ${{ item.description }}
+      created_at: ${{ item.created_at }}
+      url: ${{ item.url }}
+
+  - limit: ${{ args.limit }}
+
+columns: [id, title, description, created_at, url]
