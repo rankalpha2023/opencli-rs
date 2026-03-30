@@ -1,0 +1,61 @@
+site: xueqiu
+name: timeline
+description: 获取指定用户的动态时间线
+domain: xueqiu.com
+browser: true
+
+args:
+  user_id:
+    type: string
+    required: true
+    description: 用户ID
+  page:
+    type: int
+    default: 1
+    description: 页码，默认 1
+  limit:
+    type: int
+    default: 20
+    description: 每页数量，默认 20
+
+pipeline:
+  - navigate: https://xueqiu.com
+  - evaluate: |
+      (async () => {
+        const userId = ${{ args.user_id }};
+        const page = ${{ args.page }};
+        
+        const resp = await fetch(`https://xueqiu.com/v4/statuses/user_timeline.json?page=${page}&user_id=${userId}`, {credentials: 'include'});
+        if (!resp.ok) throw new Error('HTTP ' + resp.status + ' Hint: Not logged in?');
+        const d = await resp.json();
+
+        const strip = (html) => (html || '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
+        const list = d.statuses || d.list || [];
+        return list.map(item => {
+          const user = item.user || {};
+          return {
+            id: item.id,
+            url: 'https://xueqiu.com/' + user.id + '/' + item.id,
+            author: user.screen_name,
+            text: strip(item.text || item.description).substring(0, 200),
+            retweets: item.retweeted_status?.description || null,
+            likes: item.like_count || 0,
+            replies: item.reply_count || 0,
+            created_at: item.created_at ? new Date(item.created_at).toISOString() : null,
+          };
+        });
+      })()
+
+  - map:
+      id: ${{ item.id }}
+      url: ${{ item.url }}
+      author: ${{ item.author }}
+      text: ${{ item.text }}
+      retweets: ${{ item.retweets }}
+      likes: ${{ item.likes }}
+      replies: ${{ item.replies }}
+      created_at: ${{ item.created_at }}
+
+  - limit: ${{ args.limit }}
+
+columns: [id, url, author, text, retweets, likes, replies, created_at]
