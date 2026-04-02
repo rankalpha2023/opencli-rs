@@ -9,6 +9,10 @@ args:
     type: str
     required: true
     description: Search query
+  offset:
+    type: int
+    default: 0
+    description: Offset of results
   limit:
     type: int
     default: 10
@@ -22,7 +26,8 @@ pipeline:
         const strip = (html) => (html || '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/<em>/g, '').replace(/<\/em>/g, '').trim();
         const keyword = ${{ args.query | json }};
         const limit = ${{ args.limit }};
-        const res = await fetch('https://www.zhihu.com/api/v4/search_v3?q=' + encodeURIComponent(keyword) + '&t=general&offset=0&limit=' + limit, {
+        const offset = ${{ args.offset }};
+        const res = await fetch('https://www.zhihu.com/api/v4/search_v3?q=' + encodeURIComponent(keyword) + '&t=general&offset=' + offset + '&limit=' + limit, {
           credentials: 'include'
         });
         const d = await res.json();
@@ -48,6 +53,7 @@ pipeline:
 
   - map:
       rank: ${{ index + 1 }}
+      url: ${{ item.url }}
       title: ${{ item.title }}
       type: ${{ item.type }}
       author: ${{ item.author }}
@@ -55,4 +61,4 @@ pipeline:
 
   - limit: ${{ args.limit }}
 
-columns: [rank, title, type, author, votes]
+columns: [rank, url, title, type, author, votes]
