@@ -25,7 +25,10 @@ pipeline:
   - evaluate: |
       (() => {
         const title = document.querySelector('.Post-Title, h1.ContentItem-title, .ArticleTitle, .QuestionHeader-title')?.textContent?.trim() || 'untitled';
-        const author = document.querySelector('.AuthorInfo-name, .UserLink-link')?.textContent?.trim() || 'unknown';
+        // const author = document.querySelector('.AuthorInfo-name, .UserLink-link')?.textContent?.trim() || 'unknown';
+        const links = document.querySelectorAll('.UserLink-link');
+        const targetLink = Array.from(links).find(link => link.children.length === 0);
+        const author = targetLink?.textContent?.trim() || 'unknown';
         const timeEl = document.querySelector('.ContentItem-time, .Post-Time');
         const publishTime = timeEl?.textContent?.trim() || '';
         const contentEl = document.querySelector('.Post-RichTextContainer, .RichContent-inner, .RichText');
